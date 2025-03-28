@@ -1,68 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { Check, XCircle } from "lucide-react"
+import { X, Plus } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-
-const commonPantryItems = {
-  Spices: [
-    "Salt",
-    "Black Pepper",
-    "Garlic Powder",
-    "Onion Powder",
-    "Cumin",
-    "Coriander",
-    "Turmeric",
-    "Ginger Powder",
-    "Cinnamon",
-    "Paprika",
-    "Chili Powder",
-    "Oregano",
-    "Basil",
-    "Thyme",
-    "Rosemary",
-    "Bay Leaves",
-    "Cardamom",
-    "Nutmeg",
-    "Cloves",
-    "Allspice",
-  ],
-  Sauces: [
-    "Soy Sauce",
-    "Fish Sauce",
-    "Oyster Sauce",
-    "Worcestershire Sauce",
-    "Hot Sauce",
-    "BBQ Sauce",
-    "Teriyaki Sauce",
-    "Hoisin Sauce",
-    "Sriracha",
-    "Sesame Oil",
-    "Olive Oil",
-    "Vegetable Oil",
-    "Balsamic Vinegar",
-    "Rice Vinegar",
-    "Apple Cider Vinegar",
-  ],
-  Other: [
-    "Honey",
-    "Maple Syrup",
-    "Brown Sugar",
-    "White Sugar",
-    "Flour",
-    "Cornstarch",
-    "Baking Powder",
-    "Baking Soda",
-    "Vanilla Extract",
-    "Coconut Milk",
-    "Canned Tomatoes",
-    "Tomato Paste",
-    "Beans",
-    "Rice",
-    "Pasta",
-  ],
-}
+import { SelectionItem } from "@/components/ui/selection-item"
+import { Badge } from "@/components/ui/badge"
+import { PantryCategory, commonPantryItems, type PantryItem } from "@/lib/pantry-items"
 
 interface PantryItemsProps {
   selected: string[]
@@ -70,98 +14,164 @@ interface PantryItemsProps {
 }
 
 export function PantryItems({ selected, onSelectionChange }: PantryItemsProps) {
-  const [customItem, setCustomItem] = useState("")
+  const [inputValue, setInputValue] = useState("")
 
-  const handleItemSelection = (item: string) => {
-    if (selected.includes(item)) {
-      onSelectionChange(selected.filter((i) => i !== item))
-    } else {
-      onSelectionChange([...selected, item])
+  // Helper function to get all common pantry items
+  const getAllCommonPantryItems = () => {
+    return Object.values(PantryCategory).flatMap(category => 
+      commonPantryItems[category].map(item => item.name)
+    )
+  }
+
+  // Get custom items (items that aren't in the common pantry items list)
+  const getCustomItems = () => {
+    const commonItems = getAllCommonPantryItems()
+    return selected.filter(item => !commonItems.includes(item))
+  }
+
+  const handleSelectAll = (category: PantryCategory) => {
+    const allItemsInCategory = commonPantryItems[category].map(item => item.name)
+    const newSelected = [...selected]
+    
+    // Add all items from the category that aren't already selected
+    allItemsInCategory.forEach(item => {
+      if (!newSelected.includes(item)) {
+        newSelected.push(item)
+      }
+    })
+    
+    onSelectionChange(newSelected)
+  }
+
+  const handleDeselectAll = (category: PantryCategory) => {
+    const allItemsInCategory = commonPantryItems[category].map(item => item.name)
+    const newSelected = selected.filter(item => !allItemsInCategory.includes(item))
+    onSelectionChange(newSelected)
+  }
+
+  const handleAddItem = (e?: React.MouseEvent | React.KeyboardEvent) => {
+    if (e) e.preventDefault()
+    const trimmedValue = inputValue.trim()
+    
+    if (!trimmedValue) return
+    
+    // Prevent duplicates (case-insensitive)
+    const normalizedValue = trimmedValue.toLowerCase()
+    const isExisting = selected.some(item => item.toLowerCase() === normalizedValue)
+    
+    if (!isExisting) {
+      onSelectionChange([...selected, trimmedValue])
+      setInputValue("")
     }
   }
 
-  const handleAddCustomItem = () => {
-    if (customItem.trim() && !selected.includes(customItem.trim())) {
-      onSelectionChange([...selected, customItem.trim()])
-      setCustomItem("")
-    }
+  const handleRemoveItem = (item: string) => {
+    onSelectionChange(selected.filter((i) => i !== item))
   }
+
+  const customItems = getCustomItems()
 
   return (
     <div className="space-y-6">
-      <div className="space-y-4">
-        {Object.entries(commonPantryItems).map(([category, items]) => (
-          <div key={category}>
-            <h3 className="text-sm font-medium mb-2">{category}</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {items.map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => handleItemSelection(item)}
-                  className={`flex items-center gap-2 p-2 rounded-md text-sm transition-colors
-                    ${
-                      selected.includes(item)
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted hover:bg-muted/80"
-                    }
-                  `}
-                >
-                  {selected.includes(item) ? (
-                    <Check className="w-4 h-4" />
-                  ) : (
-                    <XCircle className="w-4 h-4" />
-                  )}
-                  {item}
-                </button>
-              ))}
-            </div>
+      <div className="flex flex-col space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1">
+            <Input
+              placeholder="Add custom pantry item..."
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleAddItem(e)
+                }
+              }}
+              className="pr-20"
+              aria-label="Custom pantry item input"
+            />
+            <Button 
+              size="sm"
+              onClick={(e) => handleAddItem(e)}
+              type="button"
+              className="absolute right-1 top-1 h-7"
+              disabled={!inputValue.trim()}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Add
+            </Button>
           </div>
-        ))}
-      </div>
-
-      <div className="space-y-2">
-        <h3 className="text-sm font-medium">Add Custom Item</h3>
-        <div className="flex gap-2">
-          <Input
-            placeholder="Enter custom pantry item"
-            value={customItem}
-            onChange={(e) => setCustomItem(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault()
-                handleAddCustomItem()
-              }
-            }}
-          />
-          <Button type="button" onClick={handleAddCustomItem}>
-            Add
-          </Button>
         </div>
-      </div>
 
-      {selected.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-sm font-medium">Selected Items</h3>
-          <div className="flex flex-wrap gap-2">
-            {selected.map((item) => (
-              <div
+        {customItems.length > 0 && (
+          <div className="flex flex-wrap gap-2 pb-2 border-b">
+            {customItems.map((item) => (
+              <Badge
                 key={item}
-                className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-md text-sm"
+                variant="secondary"
+                className="inline-flex items-center gap-1 text-sm"
               >
                 {item}
                 <button
-                  type="button"
-                  onClick={() => handleItemSelection(item)}
-                  className="hover:text-primary/80"
+                  onClick={() => handleRemoveItem(item)}
+                  className="ml-1 p-0.5 hover:text-primary rounded-full hover:bg-primary/10 transition-colors"
+                  aria-label={`Remove ${item}`}
                 >
-                  ×
+                  <X className="h-3 w-3" />
                 </button>
-              </div>
+              </Badge>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
+
+      <div className="space-y-6">
+        {Object.values(PantryCategory).map((category) => (
+          <section key={category} className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold tracking-tight">{category}</h2>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleSelectAll(category)
+                  }}
+                >
+                  Select All
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleDeselectAll(category)
+                  }}
+                >
+                  Deselect All
+                </Button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {commonPantryItems[category].map((item) => (
+                <SelectionItem
+                  key={item.name}
+                  name={item.name}
+                  isSelected={selected.includes(item.name)}
+                  onClick={() => {
+                    if (selected.includes(item.name)) {
+                      handleRemoveItem(item.name)
+                    } else {
+                      onSelectionChange([...selected, item.name])
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
     </div>
   )
 } 

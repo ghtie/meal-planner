@@ -1,4 +1,5 @@
 import { Check, XCircle } from "lucide-react"
+import { SelectionItem } from "@/components/ui/selection-item"
 
 const dietaryPreferences = [
   {
@@ -70,33 +71,23 @@ export function DietaryPreferences({ selected, onSelectionChange }: DietaryPrefe
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {dietaryPreferences.map((diet) => (
-          <button
+          <SelectionItem
             key={diet.name}
-            type="button"
+            name={diet.name}
+            description={diet.description}
+            icon={diet.icon}
+            isSelected={selected.includes(diet.name) || (diet.name === "None" && selected.length === 0)}
             onClick={() => handleSelection(diet.name)}
-            className={`relative flex items-center gap-2 p-4 rounded-lg border-2 transition-all
-              ${diet.name === "None" ? "col-span-2 md:col-span-3 justify-center" : ""}
-              ${
-                selected.includes(diet.name) || (diet.name === "None" && selected.length === 0)
-                  ? "border-primary bg-primary/5"
-                  : "border-muted hover:border-primary/50"
-              }
-              ${diet.name === "None" ? "bg-muted/30 hover:bg-muted/50" : ""}
-            `}
+            isFullWidth={diet.name === "None"}
+            className={diet.name === "None" ? "bg-muted/30 hover:bg-muted/50" : ""}
           >
-            {diet.name === "None" ? (
-              <XCircle className="w-5 h-5 mr-2 text-muted-foreground" />
-            ) : (
-              <span className="text-2xl">{diet.icon}</span>
+            {diet.name === "None" && (
+              <>
+                <XCircle className="w-5 h-5 mr-2 text-muted-foreground" />
+                <span className="font-medium">{diet.name}</span>
+              </>
             )}
-            <div className="flex flex-col items-start">
-              <span className="font-medium">{diet.name}</span>
-              {diet.name !== "None" && <span className="text-xs text-muted-foreground">{diet.description}</span>}
-            </div>
-            {(selected.includes(diet.name) || (diet.name === "None" && selected.length === 0)) && (
-              <Check className="w-4 h-4 text-primary absolute top-2 right-2" />
-            )}
-          </button>
+          </SelectionItem>
         ))}
       </div>
       {selected.length > 0 && <div className="text-sm text-muted-foreground">Selected: {selected.join(", ")}</div>}

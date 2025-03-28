@@ -21,6 +21,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { HouseholdSizeSelector, type HouseholdSize } from "@/components/household-size-selector"
+import { useRouter } from "next/navigation"
 
 export type MealSelection = {
   [key: string]: {
@@ -45,6 +47,7 @@ interface MealPlannerFormProps {
 }
 
 export function MealPlannerForm({ onRestart }: MealPlannerFormProps) {
+  const router = useRouter()
   const [step, setStep] = useState(1)
   const [showResults, setShowResults] = useState(false)
   const [hasLoadedPreferences, setHasLoadedPreferences] = useState(false)
@@ -57,6 +60,11 @@ export function MealPlannerForm({ onRestart }: MealPlannerFormProps) {
     prepTime: "30",
     cookTime: "30",
     mealSelection: defaultMealSelection,
+  })
+  const [familySize, setFamilySize] = useState<HouseholdSize>({
+    adults: 1,
+    teenagers: 0,
+    children: 0,
   })
 
   // Load saved preferences from localStorage on component mount
@@ -145,120 +153,48 @@ export function MealPlannerForm({ onRestart }: MealPlannerFormProps) {
   )
 
   if (showResults) {
-    return <MealPlan preferences={preferences} onRestart={onRestart} />
+    return <MealPlan 
+      preferences={{
+        ...preferences,
+        familySize,
+      }} 
+      onRestart={onRestart} 
+    />
   }
 
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {hasLoadedPreferences && (
-        <div className="flex flex-col gap-2 p-4 bg-muted rounded-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">
-                Using your previously saved preferences
-              </span>
+  const renderStep = () => {
+    switch (step) {
+      case 1:
+        return (
+          <div className="space-y-4">
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="space-y-1">
+                <CardTitle className="text-2xl flex items-center gap-2">
+                  <AlertCircle className="w-6 h-6 text-[#6AB04C]" />
+                  Any Food Allergies?
+                </CardTitle>
+                <CardDescription className="text-base">Select any foods you&apos;re allergic to</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Allergies
+                  selected={preferences.allergies}
+                  onSelectionChange={(allergies) =>
+                    setPreferences({
+                      ...preferences,
+                      allergies,
+                    })
+                  }
+                />
+              </CardContent>
+            </Card>
+            <div className="flex justify-end gap-2">
+              <Button onClick={() => setStep(2)}>Next</Button>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:text-destructive"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Clear Preferences
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px]">
-                <DropdownMenuItem onClick={() => clearIndividualPreference('allergies')}>
-                  <X className="w-4 h-4 mr-2" />
-                  Clear Allergies
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => clearIndividualPreference('dietaryPreferences')}>
-                  <X className="w-4 h-4 mr-2" />
-                  Clear Dietary Preferences
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => clearIndividualPreference('cuisines')}>
-                  <X className="w-4 h-4 mr-2" />
-                  Clear Cuisine Preferences
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => clearIndividualPreference('pantryItems')}>
-                  <X className="w-4 h-4 mr-2" />
-                  Clear Pantry Items
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={clearAllPreferences} className="text-destructive">
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Clear All Preferences
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
-          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-            {preferences.allergies.length > 0 && (
-              <span className="bg-background px-2 py-1 rounded">
-                {preferences.allergies.length} allergies
-              </span>
-            )}
-            {preferences.dietaryPreferences.length > 0 && (
-              <span className="bg-background px-2 py-1 rounded">
-                {preferences.dietaryPreferences.length} dietary preferences
-              </span>
-            )}
-            {preferences.cuisines.length > 0 && (
-              <span className="bg-background px-2 py-1 rounded">
-                {preferences.cuisines.length} cuisines
-              </span>
-            )}
-            {preferences.pantryItems.length > 0 && (
-              <span className="bg-background px-2 py-1 rounded">
-                {preferences.pantryItems.length} pantry items
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {step === 1 && (
-        <Card className="border-0 shadow-lg">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl flex items-center gap-2">
-              <AlertCircle className="w-6 h-6 text-[#6AB04C]" />
-              Any Food Allergies?
-            </CardTitle>
-            <CardDescription className="text-base">Select any foods you&apos;re allergic to</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Allergies
-              selected={preferences.allergies}
-              onSelectionChange={(allergies) =>
-                setPreferences({
-                  ...preferences,
-                  allergies,
-                })
-              }
-            />
-          </CardContent>
-          <CardFooter className="justify-between">
-            <Button type="button" variant="ghost" disabled>
-              Back
-            </Button>
-            <Button type="button" onClick={() => setStep(2)}>
-              Next
-              <ChevronRight className="w-4 h-4 ml-2" />
-            </Button>
-          </CardFooter>
-        </Card>
-      )}
-
-      {step === 2 && (
-        <Card className="border-0 shadow-lg">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl">Dietary Preferences</CardTitle>
-            <CardDescription className="text-base">Select any dietary preferences you follow</CardDescription>
-          </CardHeader>
-          <CardContent>
+        )
+      case 2:
+        return (
+          <div className="space-y-4">
             <DietaryPreferences
               selected={preferences.dietaryPreferences}
               onSelectionChange={(dietaryPreferences) =>
@@ -268,55 +204,17 @@ export function MealPlannerForm({ onRestart }: MealPlannerFormProps) {
                 })
               }
             />
-          </CardContent>
-          <CardFooter className="justify-between">
-            <Button type="button" variant="ghost" onClick={() => setStep(1)}>
-              Back
-            </Button>
-            <Button type="button" onClick={() => setStep(3)}>
-              Next
-              <ChevronRight className="w-4 h-4 ml-2" />
-            </Button>
-          </CardFooter>
-        </Card>
-      )}
-
-      {step === 3 && (
-        <Card className="border-0 shadow-lg">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl">Cuisine Preferences</CardTitle>
-            <CardDescription className="text-base">Select the types of cuisine you enjoy eating</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <CuisineSelector
-              selected={preferences.cuisines}
-              onSelectionChange={(cuisines) =>
-                setPreferences({
-                  ...preferences,
-                  cuisines,
-                })
-              }
-            />
-          </CardContent>
-          <CardFooter className="justify-between">
-            <Button type="button" variant="ghost" onClick={() => setStep(2)}>
-              Back
-            </Button>
-            <Button type="button" onClick={() => setStep(4)}>
-              Next
-              <ChevronRight className="w-4 h-4 ml-2" />
-            </Button>
-          </CardFooter>
-        </Card>
-      )}
-
-      {step === 4 && (
-        <Card className="border-0 shadow-lg">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl">Your Pantry</CardTitle>
-            <CardDescription className="text-base">Select the spices, sauces, and other items you already have</CardDescription>
-          </CardHeader>
-          <CardContent>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setStep(1)}>
+                Back
+              </Button>
+              <Button onClick={() => setStep(3)}>Next</Button>
+            </div>
+          </div>
+        )
+      case 3:
+        return (
+          <div className="space-y-4">
             <PantryItems
               selected={preferences.pantryItems}
               onSelectionChange={(pantryItems) =>
@@ -326,128 +224,125 @@ export function MealPlannerForm({ onRestart }: MealPlannerFormProps) {
                 })
               }
             />
-          </CardContent>
-          <CardFooter className="justify-between">
-            <Button type="button" variant="ghost" onClick={() => setStep(3)}>
-              Back
-            </Button>
-            <Button type="button" onClick={() => setStep(5)}>
-              Next
-              <ChevronRight className="w-4 h-4 ml-2" />
-            </Button>
-          </CardFooter>
-        </Card>
-      )}
-
-      {step === 5 && (
-        <Card className="border-0 shadow-lg">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl">Time Preferences</CardTitle>
-            <CardDescription className="text-base">
-              How long do you want to spend preparing and cooking?
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-4">
-              <Label>Maximum prep time (minutes)</Label>
-              <div className="flex items-center space-x-4">
-                <UtensilsCrossed className="w-4 h-4 text-muted-foreground" />
-                <RadioGroup
-                  defaultValue={preferences.prepTime}
-                  onValueChange={(value) => setPreferences({ ...preferences, prepTime: value })}
-                  className="flex space-x-4"
-                  aria-label="Maximum preparation time in minutes"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="15" id="prep-15" />
-                    <Label htmlFor="prep-15">15</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="30" id="prep-30" />
-                    <Label htmlFor="prep-30">30</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="45" id="prep-45" />
-                    <Label htmlFor="prep-45">45</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="60" id="prep-60" />
-                    <Label htmlFor="prep-60">60+</Label>
-                  </div>
-                </RadioGroup>
-              </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setStep(2)}>
+                Back
+              </Button>
+              <Button onClick={() => setStep(4)}>Next</Button>
             </div>
-            <div className="space-y-4">
-              <Label>Maximum cooking time (minutes)</Label>
-              <div className="flex items-center space-x-4">
-                <Clock className="w-4 h-4 text-muted-foreground" />
-                <RadioGroup
-                  defaultValue={preferences.cookTime}
-                  onValueChange={(value) => setPreferences({ ...preferences, cookTime: value })}
-                  className="flex space-x-4"
-                  aria-label="Maximum cooking time in minutes"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="15" id="cook-15" />
-                    <Label htmlFor="cook-15">15</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="30" id="cook-30" />
-                    <Label htmlFor="cook-30">30</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="45" id="cook-45" />
-                    <Label htmlFor="cook-45">45</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="60" id="cook-60" />
-                    <Label htmlFor="cook-60">60+</Label>
-                  </div>
-                </RadioGroup>
-              </div>
+          </div>
+        )
+      case 4:
+        return (
+          <div className="space-y-4">
+            <HouseholdSizeSelector familySize={familySize} onChange={setFamilySize} />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setStep(3)}>
+                Back
+              </Button>
+              <Button onClick={() => setStep(5)}>Next</Button>
             </div>
-          </CardContent>
-          <CardFooter className="justify-between">
-            <Button type="button" variant="ghost" onClick={() => setStep(4)} aria-label="Go back to previous step">
-              Back
-            </Button>
-            <Button type="button" onClick={() => setStep(6)} aria-label="Continue to next step">
-              Next
-              <ChevronRight className="w-4 h-4 ml-2" aria-hidden="true" />
-            </Button>
-          </CardFooter>
-        </Card>
-      )}
+          </div>
+        )
+      case 5:
+        return (
+          <div className="space-y-4">
+            <WeeklyMealSelector mealSelection={preferences.mealSelection} onChange={(newSelection) =>
+              setPreferences({
+                ...preferences,
+                mealSelection: newSelection,
+              })
+            } />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setStep(4)}>
+                Back
+              </Button>
+              <Button onClick={handleSubmit} disabled={totalMealsSelected === 0}>
+                {totalMealsSelected === 0 ? "No meals selected" : "Generate Meal Plan"}
+              </Button>
+            </div>
+          </div>
+        )
+      default:
+        return null
+    }
+  }
 
-      {step === 6 && (
-        <Card className="border-0 shadow-lg">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl">Meal Selection</CardTitle>
-            <CardDescription className="text-base">Choose which meals you want to plan for each day</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <WeeklyMealSelector
-              mealSelection={preferences.mealSelection}
-              onChange={(newSelection) =>
-                setPreferences({
-                  ...preferences,
-                  mealSelection: newSelection,
-                })
-              }
-            />
-            <div className="mt-4 text-sm text-muted-foreground">Total meals selected: {totalMealsSelected}</div>
-          </CardContent>
-          <CardFooter className="justify-between">
-            <Button type="button" variant="ghost" onClick={() => setStep(5)} aria-label="Go back to previous step">
-              Back
-            </Button>
-            <Button type="submit" disabled={totalMealsSelected === 0} aria-label="Generate Meal Plan">
-              Generate Meal Plan
-            </Button>
-          </CardFooter>
-        </Card>
-      )}
-    </form>
+  return (
+    <Card className="w-full max-w-2xl mx-auto">
+      <div className="p-6">
+        {hasLoadedPreferences && (
+          <div className="flex flex-col gap-2 p-4 bg-muted rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  Using your previously saved preferences
+                </span>
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Clear Preferences
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[200px]">
+                  <DropdownMenuItem onClick={() => clearIndividualPreference('allergies')}>
+                    <X className="w-4 h-4 mr-2" />
+                    Clear Allergies
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => clearIndividualPreference('dietaryPreferences')}>
+                    <X className="w-4 h-4 mr-2" />
+                    Clear Dietary Preferences
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => clearIndividualPreference('cuisines')}>
+                    <X className="w-4 h-4 mr-2" />
+                    Clear Cuisine Preferences
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => clearIndividualPreference('pantryItems')}>
+                    <X className="w-4 h-4 mr-2" />
+                    Clear Pantry Items
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={clearAllPreferences} className="text-destructive">
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Clear All Preferences
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+              {preferences.allergies.length > 0 && (
+                <span className="bg-background px-2 py-1 rounded">
+                  {preferences.allergies.length} allergies
+                </span>
+              )}
+              {preferences.dietaryPreferences.length > 0 && (
+                <span className="bg-background px-2 py-1 rounded">
+                  {preferences.dietaryPreferences.length} dietary preferences
+                </span>
+              )}
+              {preferences.cuisines.length > 0 && (
+                <span className="bg-background px-2 py-1 rounded">
+                  {preferences.cuisines.length} cuisines
+                </span>
+              )}
+              {preferences.pantryItems.length > 0 && (
+                <span className="bg-background px-2 py-1 rounded">
+                  {preferences.pantryItems.length} pantry items
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+        {renderStep()}
+      </div>
+    </Card>
   )
 }
 

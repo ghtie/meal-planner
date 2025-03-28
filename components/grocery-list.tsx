@@ -1,119 +1,201 @@
 "use client"
 
-import { ArrowRight, Mail, MessageSquare, Share2, ShoppingBasket } from "lucide-react"
 import { useState } from "react"
-
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { Share2, FileDown, Copy, ShoppingBasket } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useToast } from "@/components/ui/use-toast"
-import { Recipe } from "@/lib/recipe-generator"
+import type { Recipe, GroceryList, GroceryItem } from "@/lib/recipe-generator"
 
 interface GroceryListProps {
   recipes: Recipe[]
-  pantryItems: string[]
+  pantryItems?: string[]
 }
 
-export function GroceryList({ recipes = [], pantryItems = [] }: GroceryListProps) {
+// Helper function to normalize ingredient names
+function normalizeItemName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\s*\([^)]*\)/g, '') // Remove parenthetical notes
+    .replace(/\s*\[[^\]]*\]/g, '') // Remove bracketed notes
+    .replace(/\s+/g, ' ') // Normalize spaces
+    .replace(/s$/, '') // Remove trailing 's' for plurals
+    .replace(/^(fresh|dried|ground|chopped|diced|minced|sliced|whole|organic|raw)\s+/, '') // Remove common prefixes
+    .replace(/,.*$/, '') // Remove everything after a comma
+    .trim()
+}
+
+// Helper function to standardize units
+function standardizeUnit(unit: string): string {
+  const unitMap: Record<string, string> = {
+    'g': 'grams',
+    'gram': 'grams',
+    'grams': 'grams',
+    'kg': 'kilograms',
+    'kgs': 'kilograms',
+    'kilogram': 'kilograms',
+    'oz': 'ounces',
+    'ozs': 'ounces',
+    'ounce': 'ounces',
+    'lb': 'pounds',
+    'lbs': 'pounds',
+    'pound': 'pounds',
+    'ml': 'milliliters',
+    'milliliter': 'milliliters',
+    'l': 'liters',
+    'liter': 'liters',
+    'cup': 'cups',
+    'tbsp': 'tablespoons',
+    'tbs': 'tablespoons',
+    'tablespoon': 'tablespoons',
+    'tsp': 'teaspoons',
+    'teaspoon': 'teaspoons',
+    'piece': '',
+    'pieces': '',
+    'whole': '',
+    'unit': '',
+    'units': '',
+  }
+  
+  unit = unit.toLowerCase().trim()
+  return unitMap[unit] || unit
+}
+
+// Helper function to parse amount and unit
+function parseAmount(amount: string): { value: number; unit: string } {
+  const match = amount.match(/^([\d.\/]+)\s*([a-zA-Z]+(?:\s+[a-zA-Z]+)*)?/)
+  if (!match) return { value: 1, unit: '' }
+  
+  const numStr = match[1]
+  const unit = standardizeUnit(match[2] || '')
+  
+  // Handle fractions
+  let value: number
+  if (numStr.includes('/')) {
+    const [numerator, denominator] = numStr.split('/')
+    value = Number(numerator) / Number(denominator)
+  } else {
+    value = Number(numStr)
+  }
+    
+  return { value: isNaN(value) ? 1 : value, unit }
+}
+
+// Helper function to combine amounts
+function combineAmounts(items: GroceryItem[]): GroceryItem {
+  const firstItem = items[0]
+  
+  let totalValue = 0
+  let commonUnit = ''
+  
+  // Find the most common unit
+  const unitCounts = items.reduce((acc, item) => {
+    const { unit } = parseAmount(item.amount)
+    const standardUnit = standardizeUnit(unit)
+    acc[standardUnit] = (acc[standardUnit] || 0) + 1
+    return acc
+  }, {} as Record<string, number>)
+  
+  commonUnit = Object.entries(unitCounts)
+    .sort((a, b) => b[1] - a[1])[0]?.[0] || ''
+
+  // Sum up values with matching units
+  items.forEach(item => {
+    const { value, unit } = parseAmount(item.amount)
+    const standardUnit = standardizeUnit(unit)
+    if (standardUnit === commonUnit || (!standardUnit && !commonUnit)) {
+      totalValue += value
+    }
+  })
+
+  // Format the combined amount
+  let combinedAmount: string
+  if (commonUnit) {
+    // Round to 2 decimal places and remove trailing zeros
+    const formattedValue = Number(totalValue.toFixed(2)).toString()
+    combinedAmount = `${formattedValue} ${commonUnit}`
+  } else {
+    combinedAmount = Number(totalValue.toFixed(2)).toString()
+  }
+
+  // Clean up the item name
+  const cleanedItemName = firstItem.item
+    .replace(/^(fresh|dried|ground|chopped|diced|minced|sliced|whole|organic|raw)\s+/, '')
+    .replace(/,.*$/, '')
+    .trim()
+
+  return {
+    amount: combinedAmount.trim(),
+    unit: '',
+    item: cleanedItemName
+  }
+}
+
+export function GroceryList({ recipes, pantryItems = [] }: GroceryListProps) {
   const [isSharing, setIsSharing] = useState(false)
   const { toast } = useToast()
 
-  // Combine all ingredients from all recipes
-  const allIngredients = recipes?.flatMap((recipe) =>
-    recipe.ingredients.map((ing) => ({
-      item: ing.item.toLowerCase(),
-      amount: ing.amount,
-    }))
-  ) || []
+  // Combine grocery lists from all recipes and deduplicate items
+  const combinedGroceryList = recipes.reduce((acc, recipe) => {
+    if (!recipe.groceryList) return acc
 
-  // Helper function to normalize ingredient names
-  const normalizeIngredientName = (name: string) => {
-    return name
-      .toLowerCase()
-      .replace(/\s*\([^)]*\)/g, '') // Remove parenthetical notes
-      .replace(/\s*\[[^\]]*\]/g, '') // Remove bracketed notes
-      .replace(/\s+/g, ' ') // Normalize spaces
-      .replace(/s$/, '') // Remove trailing 's' for plurals
-      .trim()
-  }
-
-  // Helper function to parse amount and unit
-  const parseAmount = (amount: string) => {
-    const match = amount.match(/^([\d.\/]+)\s*([a-zA-Z]+)?/)
-    if (!match) return { value: 1, unit: '' }
-    
-    const numStr = match[1]
-    const unit = match[2] || ''
-    
-    // Handle fractions
-    const value = numStr.includes('/')
-      ? numStr.split('/').reduce((a, b) => Number(a) / Number(b))
-      : Number(numStr)
-      
-    return { value: isNaN(value) ? 1 : value, unit }
-  }
-
-  // Combine duplicate ingredients and sum their amounts
-  const combinedIngredients = allIngredients.reduce((acc, curr) => {
-    const normalizedName = normalizeIngredientName(curr.item)
-    const existingItem = acc.find(item => normalizeIngredientName(item.item) === normalizedName)
-
-    if (existingItem) {
-      const current = parseAmount(curr.amount)
-      const existing = parseAmount(existingItem.amount)
-
-      if (current.unit === existing.unit) {
-        // Same units - add values
-        const totalValue = current.value + existing.value
-        existingItem.amount = `${totalValue} ${current.unit}`.trim()
-      } else if (!current.unit && !existing.unit) {
-        // No units - add values
-        const totalValue = current.value + existing.value
-        existingItem.amount = `${totalValue}`
-      } else {
-        // Different units or can't combine - list both
-        existingItem.amount = `${existingItem.amount}, ${curr.amount}`
+    Object.entries(recipe.groceryList).forEach(([category, items]) => {
+      if (!acc[category]) {
+        acc[category] = []
       }
-    } else {
-      acc.push({ ...curr })
-    }
-    return acc
-  }, [] as { item: string; amount: string }[])
 
-  // Filter out pantry items
-  const groceryItems = combinedIngredients
-    .filter((ing) => !pantryItems.some(item => 
-      normalizeIngredientName(ing.item).includes(normalizeIngredientName(item))
-    ))
-    .sort((a, b) => a.item.localeCompare(b.item))
+      // Group items by normalized name
+      const itemGroups = new Map<string, GroceryItem[]>()
+      items.forEach(item => {
+        const normalizedName = normalizeItemName(item.item)
+        if (!itemGroups.has(normalizedName)) {
+          itemGroups.set(normalizedName, [])
+        }
+        itemGroups.get(normalizedName)?.push(item)
+      })
 
-  const formatGroceryList = (format: "text" | "html") => {
-    let list = "Grocery List:\n\n"
-    if (format === "html") {
-      list = "<h2>Grocery List</h2>"
-    }
-
-    groceryItems.forEach((item) => {
-      if (format === "text") {
-        list += `${item.amount} ${item.item}\n`
-      } else {
-        list += `<li>${item.amount} ${item.item}</li>`
-      }
+      // Combine amounts for each group and add to the category
+      itemGroups.forEach(groupItems => {
+        acc[category].push(combineAmounts(groupItems))
+      })
     })
 
-    return list
+    return acc
+  }, {} as GroceryList)
+
+  // Format the grocery list for sharing
+  const formatGroceryList = (format: "text" | "html" = "text"): string => {
+    const lines: string[] = ["Grocery List:"]
+
+    Object.entries(combinedGroceryList).forEach(([category, items]) => {
+      if (format === "html") {
+        lines.push(`\n<strong>${category}</strong>`)
+      } else {
+        lines.push(`\n${category}:`)
+      }
+
+      items.forEach(({ amount, item }) => {
+        if (format === "html") {
+          lines.push(`• ${amount} ${item}`)
+        } else {
+          lines.push(`- ${amount} ${item}`)
+        }
+      })
+    })
+
+    return lines.join("\n")
   }
 
-  const handleShare = async (method: "email" | "sms" | "notes" | "copy") => {
+  const handleShare = async (method: "sms" | "copy") => {
     setIsSharing(true)
     try {
       switch (method) {
-        case "email":
-          // Create mailto link with formatted list
-          window.location.href = `mailto:?subject=My%20Grocery%20List&body=${encodeURIComponent(formatGroceryList("text"))}`
-          break
-
         case "sms":
           // Use Web Share API if available
           if (navigator.share) {
@@ -125,13 +207,6 @@ export function GroceryList({ recipes = [], pantryItems = [] }: GroceryListProps
             // Fallback for SMS using tel: protocol
             window.location.href = `sms:?body=${encodeURIComponent(formatGroceryList("text"))}`
           }
-          break
-
-        case "notes":
-          // Deep link to Apple Notes
-          // Note: This only works on iOS devices
-          const notesList = formatGroceryList("text")
-          window.location.href = `mobilenotes://x-callback-url/create?text=${encodeURIComponent(notesList)}`
           break
 
         case "copy":
@@ -155,53 +230,54 @@ export function GroceryList({ recipes = [], pantryItems = [] }: GroceryListProps
     }
   }
 
+  // Don't show the component if there are no items
+  if (Object.keys(combinedGroceryList).length === 0) {
+    return null
+  }
+
   return (
-    <Card>
-      <CardHeader className="p-4 md:p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ShoppingBasket className="w-4 h-4 md:w-5 md:h-5" />
-            <CardTitle className="text-base md:text-lg">Grocery List</CardTitle>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" disabled={isSharing}>
-                <Share2 className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[200px]">
-              <DropdownMenuItem onClick={() => handleShare("email")} className="text-sm">
-                <Mail className="mr-2 h-4 w-4" />
-                <span>Email</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleShare("sms")} className="text-sm">
-                <MessageSquare className="mr-2 h-4 w-4" />
-                <span>Message</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleShare("notes")} className="text-sm">
-                <ShoppingBasket className="mr-2 h-4 w-4" />
-                <span>Apple Notes</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleShare("copy")} className="text-sm">
-                <ArrowRight className="mr-2 h-4 w-4" />
-                <span>Copy to Clipboard</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+    <Card className="mt-8">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <div className="space-y-1">
+          <CardTitle className="text-2xl">Grocery List</CardTitle>
+          <CardDescription>Everything you need for your meal plan</CardDescription>
         </div>
-        <CardDescription className="text-sm">Everything you need for your selected meals</CardDescription>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" disabled={isSharing}>
+              <Share2 className="h-4 w-4" />
+              <span className="sr-only">Share grocery list</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-[200px]">
+            <DropdownMenuItem onClick={() => handleShare("sms")} className="text-sm">
+              <FileDown className="mr-2 h-4 w-4" />
+              <span>Export To...</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleShare("copy")} className="text-sm">
+              <Copy className="mr-2 h-4 w-4" />
+              <span>Copy to Clipboard</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          <h3 className="font-medium text-lg">Grocery List</h3>
-          <ul className="space-y-2">
-            {groceryItems.map((ing, index) => (
-              <li key={index} className="flex items-center gap-2">
-                <span className="font-medium">{ing.amount}</span>
-                <span>{ing.item}</span>
-              </li>
-            ))}
-          </ul>
+        <div className="space-y-6">
+          {Object.entries(combinedGroceryList).map(([category, items]) => (
+            <div key={category}>
+              <h3 className="font-semibold mb-2">{category}</h3>
+              <ul className="space-y-1">
+                {items.map((item, index) => (
+                  <li key={index} className="text-sm flex items-center gap-2">
+                    <ShoppingBasket className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span>
+                      {item.amount} {item.item}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       </CardContent>
     </Card>

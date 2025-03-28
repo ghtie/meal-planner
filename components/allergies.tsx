@@ -1,4 +1,5 @@
-import { Check, XCircle } from "lucide-react"
+import { XCircle } from "lucide-react"
+import { SelectionItem } from "@/components/ui/selection-item"
 
 const allergyOptions = [
   {
@@ -80,36 +81,23 @@ export function Allergies({ selected, onSelectionChange }: AllergiesProps) {
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {allergyOptions.map((allergy) => (
-          <button
+          <SelectionItem
             key={allergy.name}
-            type="button"
+            name={allergy.name}
+            description={allergy.description}
+            icon={allergy.icon}
+            isSelected={selected.includes(allergy.name) || (allergy.name === "None" && selected.length === 0)}
             onClick={() => handleSelection(allergy.name)}
-            aria-pressed={selected.includes(allergy.name) || (allergy.name === "None" && selected.length === 0)}
-            aria-label={`Select ${allergy.name}${allergy.description ? `: ${allergy.description}` : ""}`}
-            className={`relative flex items-center gap-2 p-4 rounded-lg border-2 transition-all
-              focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2
-              ${allergy.name === "None" ? "col-span-2 md:col-span-3 justify-center" : ""}
-              ${
-                selected.includes(allergy.name) || (allergy.name === "None" && selected.length === 0)
-                  ? "border-primary bg-primary/5"
-                  : "border-muted hover:border-primary/50"
-              }
-              ${allergy.name === "None" ? "bg-muted/30 hover:bg-muted/50" : ""}
-            `}
+            isFullWidth={allergy.name === "None"}
+            className={allergy.name === "None" ? "bg-muted/30 hover:bg-muted/50" : ""}
           >
-            {allergy.name === "None" ? (
-              <XCircle className="w-5 h-5 mr-2 text-muted-foreground" />
-            ) : (
-              <span className="text-2xl">{allergy.icon}</span>
+            {allergy.name === "None" && (
+              <>
+                <XCircle className="w-5 h-5 mr-2 text-muted-foreground" />
+                <span className="font-medium">{allergy.name}</span>
+              </>
             )}
-            <div className="flex flex-col items-start">
-              <span className="font-medium">{allergy.name}</span>
-              {allergy.name !== "None" && <span className="text-xs text-muted-foreground">{allergy.description}</span>}
-            </div>
-            {(selected.includes(allergy.name) || (allergy.name === "None" && selected.length === 0)) && (
-              <Check className="w-4 h-4 text-primary absolute top-2 right-2" />
-            )}
-          </button>
+          </SelectionItem>
         ))}
       </div>
       {selected.length > 0 && (

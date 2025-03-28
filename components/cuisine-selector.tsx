@@ -1,7 +1,19 @@
+"use client"
+
 import { Check, XCircle } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
 
-// Top 15 most popular cuisines with their descriptions and emojis
+// Types
+type CuisineInfo = {
+  description: string
+  emoji: string
+}
+
+// Constants
+const NO_PREFERENCE = "No Preference" as const
+
+// Move this to a separate config file in the future
 const cuisineData = {
   Italian: {
     description: "Pasta, pizza, and Mediterranean flavors",
@@ -63,74 +75,149 @@ const cuisineData = {
     description: "Kebabs, pide, and mezze",
     emoji: "🇹🇷",
   },
-}
+} as const
+
+type Cuisine = keyof typeof cuisineData
+type SelectableCuisine = Cuisine | typeof NO_PREFERENCE
 
 interface CuisineSelectorProps {
-  selected: string[]
-  onSelectionChange: (cuisines: string[]) => void
+  selected: Cuisine[]
+  onSelectionChange: (cuisines: Cuisine[]) => void
+  maxSelections?: number
 }
 
-export function CuisineSelector({ selected, onSelectionChange }: CuisineSelectorProps) {
-  const handleCuisineSelection = (cuisine: string) => {
-    if (cuisine === "No Preference") {
-      onSelectionChange([]) // Clear all selections
-    } else {
-      onSelectionChange(
-        selected.includes(cuisine)
-          ? selected.filter((c) => c !== cuisine)
-          : [...selected.filter((c) => c !== "No Preference"), cuisine],
-      )
+// Component for individual cuisine button
+function CuisineButton({ 
+  cuisine, 
+  info, 
+  isSelected, 
+  onSelect 
+}: { 
+  cuisine: Cuisine
+  info: CuisineInfo
+  isSelected: boolean
+  onSelect: () => void
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={onSelect}
+          className={cn(
+            "relative flex items-center gap-2 p-4 rounded-lg border-2 transition-all w-full",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+            "hover:border-primary/50 hover:bg-muted/5",
+            isSelected
+              ? "border-primary bg-primary/5"
+              : "border-muted"
+          )}
+          aria-pressed={isSelected}
+        >
+          <span className="text-2xl" aria-hidden="true">{info.emoji}</span>
+          <span className="font-medium">{cuisine}</span>
+          {isSelected && (
+            <Check 
+              className="w-4 h-4 text-primary absolute top-2 right-2" 
+              aria-hidden="true"
+            />
+          )}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p>{info.description}</p>
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+export function CuisineSelector({ 
+  selected, 
+  onSelectionChange, 
+  maxSelections = 5 // Add reasonable default limit
+}: CuisineSelectorProps) {
+  const handleCuisineSelection = (cuisine: SelectableCuisine) => {
+    if (cuisine === NO_PREFERENCE) {
+      onSelectionChange([])
+      return
     }
+
+    const isSelected = selected.includes(cuisine)
+    if (isSelected) {
+      onSelectionChange(selected.filter((c) => c !== cuisine))
+      return
+    }
+
+    // Prevent selecting more than maxSelections
+    if (selected.length >= maxSelections) {
+      return
+    }
+
+    // Since NO_PREFERENCE is a different type than cuisine, we don't need to filter it
+    onSelectionChange([...selected, cuisine])
   }
+
+  const noPreferenceSelected = selected.length === 0
 
   return (
     <TooltipProvider>
-      <div className="space-y-4">
+      <div 
+        className="space-y-4" 
+        role="region" 
+        aria-label="Cuisine Selection"
+      >
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <button
             type="button"
-            onClick={() => handleCuisineSelection("No Preference")}
-            className={`relative flex items-center gap-2 p-4 rounded-lg border-2 transition-all
-              col-span-full justify-center
-              ${
-                selected.length === 0
-                  ? "border-primary bg-primary/5"
-                  : "border-muted hover:border-primary/50 bg-muted/30 hover:bg-muted/50"
-              }
-            `}
+            onClick={() => handleCuisineSelection(NO_PREFERENCE)}
+            className={cn(
+              "relative flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all col-span-full",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+              noPreferenceSelected
+                ? "border-primary bg-primary/5"
+                : "border-muted hover:border-primary/50 bg-muted/30 hover:bg-muted/50"
+            )}
+            aria-pressed={noPreferenceSelected}
           >
-            <XCircle className="w-5 h-5 mr-2 text-muted-foreground" />
+            <XCircle 
+              className="w-5 h-5 mr-2 text-muted-foreground" 
+              aria-hidden="true" 
+            />
             <span className="font-medium">Open to All Cuisines</span>
-            {selected.length === 0 && <Check className="w-4 h-4 text-primary absolute top-2 right-2" />}
+            {noPreferenceSelected && (
+              <Check 
+                className="w-4 h-4 text-primary absolute top-2 right-2" 
+                aria-hidden="true"
+              />
+            )}
           </button>
 
-          {Object.entries(cuisineData).map(([cuisine, data]) => (
-            <Tooltip key={cuisine}>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={() => handleCuisineSelection(cuisine)}
-                  className={`relative flex items-center gap-2 p-4 rounded-lg border-2 transition-all w-full
-                    ${
-                      selected.includes(cuisine)
-                        ? "border-primary bg-primary/5"
-                        : "border-muted hover:border-primary/50"
-                    }
-                  `}
-                >
-                  <span className="text-2xl">{data.emoji}</span>
-                  <span className="font-medium">{cuisine}</span>
-                  {selected.includes(cuisine) && <Check className="w-4 h-4 text-primary absolute top-2 right-2" />}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{data.description}</p>
-              </TooltipContent>
-            </Tooltip>
+          {(Object.entries(cuisineData) as [Cuisine, CuisineInfo][]).map(([cuisine, info]) => (
+            <CuisineButton
+              key={cuisine}
+              cuisine={cuisine}
+              info={info}
+              isSelected={selected.includes(cuisine)}
+              onSelect={() => handleCuisineSelection(cuisine)}
+            />
           ))}
         </div>
-        <div className="text-sm text-muted-foreground">
-          {selected.length === 0 ? "No specific cuisine preference selected" : `Selected: ${selected.join(", ")}`}
+
+        <div 
+          className="text-sm text-muted-foreground space-y-1"
+          aria-live="polite"
+        >
+          <p>
+            {noPreferenceSelected 
+              ? "No specific cuisine preference selected" 
+              : `Selected cuisines: ${selected.join(", ")}`
+            }
+          </p>
+          {!noPreferenceSelected && (
+            <p className="text-xs">
+              You can select up to {maxSelections} cuisines
+            </p>
+          )}
         </div>
       </div>
     </TooltipProvider>
