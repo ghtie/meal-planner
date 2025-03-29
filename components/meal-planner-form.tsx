@@ -73,7 +73,8 @@ export function MealPlannerForm({ onRestart }: MealPlannerFormProps) {
     const savedPantryItems = localStorage.getItem('mealPlannerPantryItems')
     const savedDietaryPreferences = localStorage.getItem('mealPlannerDietaryPreferences')
     const savedCuisines = localStorage.getItem('mealPlannerCuisines')
-    const hasSavedData = savedAllergies || savedPantryItems || savedDietaryPreferences || savedCuisines
+    const savedHouseholdSize = localStorage.getItem('mealPlannerHouseholdSize')
+    const hasSavedData = savedAllergies || savedPantryItems || savedDietaryPreferences || savedCuisines || savedHouseholdSize
     
     if (hasSavedData) {
       setHasLoadedPreferences(true)
@@ -84,22 +85,30 @@ export function MealPlannerForm({ onRestart }: MealPlannerFormProps) {
         cuisines: savedCuisines ? JSON.parse(savedCuisines) : [],
         pantryItems: savedPantryItems ? JSON.parse(savedPantryItems) : [],
       }))
+      
+      if (savedHouseholdSize) {
+        setFamilySize(JSON.parse(savedHouseholdSize))
+      }
     }
   }, [])
 
-  // Save preferences to localStorage whenever they change
+  // Save preferences to localStorage when they change
   useEffect(() => {
-    localStorage.setItem('mealPlannerAllergies', JSON.stringify(preferences.allergies))
-    localStorage.setItem('mealPlannerPantryItems', JSON.stringify(preferences.pantryItems))
-    localStorage.setItem('mealPlannerDietaryPreferences', JSON.stringify(preferences.dietaryPreferences))
-    localStorage.setItem('mealPlannerCuisines', JSON.stringify(preferences.cuisines))
-  }, [preferences.allergies, preferences.pantryItems, preferences.dietaryPreferences, preferences.cuisines])
+    if (hasLoadedPreferences) {
+      localStorage.setItem('mealPlannerAllergies', JSON.stringify(preferences.allergies))
+      localStorage.setItem('mealPlannerPantryItems', JSON.stringify(preferences.pantryItems))
+      localStorage.setItem('mealPlannerDietaryPreferences', JSON.stringify(preferences.dietaryPreferences))
+      localStorage.setItem('mealPlannerCuisines', JSON.stringify(preferences.cuisines))
+      localStorage.setItem('mealPlannerHouseholdSize', JSON.stringify(familySize))
+    }
+  }, [preferences.allergies, preferences.pantryItems, preferences.dietaryPreferences, preferences.cuisines, familySize, hasLoadedPreferences])
 
   const clearAllPreferences = () => {
     localStorage.removeItem('mealPlannerAllergies')
     localStorage.removeItem('mealPlannerPantryItems')
     localStorage.removeItem('mealPlannerDietaryPreferences')
     localStorage.removeItem('mealPlannerCuisines')
+    localStorage.removeItem('mealPlannerHouseholdSize')
     setPreferences(prev => ({
       ...prev,
       allergies: [],
@@ -107,6 +116,11 @@ export function MealPlannerForm({ onRestart }: MealPlannerFormProps) {
       dietaryPreferences: [],
       cuisines: [],
     }))
+    setFamilySize({
+      adults: 1,
+      teenagers: 0,
+      children: 0,
+    })
     setHasLoadedPreferences(false)
     toast({
       title: "Preferences cleared",
@@ -163,13 +177,41 @@ export function MealPlannerForm({ onRestart }: MealPlannerFormProps) {
   }
 
   const renderStep = () => {
+    const navigationButtons = (backStep: number, nextStep: number | (() => void), isDisabled = false) => (
+      <div className="flex flex-col sm:flex-row justify-end gap-2 mt-6">
+        <Button 
+          variant="outline" 
+          onClick={() => setStep(backStep)}
+          className="w-full sm:w-auto order-2 sm:order-1"
+        >
+          Back
+        </Button>
+        {typeof nextStep === "function" ? (
+          <Button 
+            onClick={nextStep} 
+            disabled={isDisabled}
+            className="w-full sm:w-auto order-1 sm:order-2"
+          >
+            {isDisabled ? "No meals selected" : "Generate Meal Plan"}
+          </Button>
+        ) : (
+          <Button 
+            onClick={() => setStep(nextStep)}
+            className="w-full sm:w-auto order-1 sm:order-2"
+          >
+            Next
+          </Button>
+        )}
+      </div>
+    )
+
     switch (step) {
       case 1:
         return (
           <div className="space-y-4">
             <Card className="border-0 shadow-lg">
-              <CardHeader className="space-y-1">
-                <CardTitle className="text-2xl flex items-center gap-2">
+              <CardHeader className="space-y-1 p-4 sm:p-6">
+                <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
                   <AlertCircle className="w-6 h-6 text-[#6AB04C]" />
                   Any Food Allergies?
                 </CardTitle>
@@ -270,12 +312,12 @@ export function MealPlannerForm({ onRestart }: MealPlannerFormProps) {
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {hasLoadedPreferences && (
-          <div className="flex flex-col gap-2 p-4 bg-muted rounded-lg">
-            <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-2 p-3 sm:p-4 bg-muted rounded-lg mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-muted-foreground" />
+                <AlertCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                 <span className="text-sm text-muted-foreground">
                   Using your previously saved preferences
                 </span>
@@ -286,7 +328,7 @@ export function MealPlannerForm({ onRestart }: MealPlannerFormProps) {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="text-destructive hover:text-destructive"
+                    className="text-destructive hover:text-destructive w-full sm:w-auto justify-center"
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
                     Clear Preferences
@@ -316,31 +358,33 @@ export function MealPlannerForm({ onRestart }: MealPlannerFormProps) {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 text-xs text-muted-foreground">
               {preferences.allergies.length > 0 && (
-                <span className="bg-background px-2 py-1 rounded">
+                <span className="bg-background px-2 py-1 rounded text-center">
                   {preferences.allergies.length} allergies
                 </span>
               )}
               {preferences.dietaryPreferences.length > 0 && (
-                <span className="bg-background px-2 py-1 rounded">
+                <span className="bg-background px-2 py-1 rounded text-center">
                   {preferences.dietaryPreferences.length} dietary preferences
                 </span>
               )}
               {preferences.cuisines.length > 0 && (
-                <span className="bg-background px-2 py-1 rounded">
+                <span className="bg-background px-2 py-1 rounded text-center">
                   {preferences.cuisines.length} cuisines
                 </span>
               )}
               {preferences.pantryItems.length > 0 && (
-                <span className="bg-background px-2 py-1 rounded">
+                <span className="bg-background px-2 py-1 rounded text-center">
                   {preferences.pantryItems.length} pantry items
                 </span>
               )}
             </div>
           </div>
         )}
-        {renderStep()}
+        <div className="space-y-4">
+          {renderStep()}
+        </div>
       </div>
     </Card>
   )

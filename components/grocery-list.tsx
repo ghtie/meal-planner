@@ -197,34 +197,31 @@ export function GroceryList({ recipes, pantryItems = [] }: GroceryListProps) {
     try {
       switch (method) {
         case "sms":
-          // Use Web Share API if available
           if (navigator.share) {
             await navigator.share({
               title: "Grocery List",
               text: formatGroceryList("text"),
             })
           } else {
-            // Fallback for SMS using tel: protocol
-            window.location.href = `sms:?body=${encodeURIComponent(formatGroceryList("text"))}`
+            // Show a toast message if sharing is not supported
+            toast({
+              title: "Sharing not supported",
+              description: "Your device or browser doesn't support direct sharing. Try copying the list instead.",
+              variant: "destructive",
+            })
           }
-          break
-
-        case "copy":
-          // Copy to clipboard
-          await navigator.clipboard.writeText(formatGroceryList("text"))
-          toast({
-            title: "Copied to clipboard",
-            description: "Your grocery list has been copied to the clipboard.",
-          })
           break
       }
     } catch (error) {
-      console.error("Error sharing:", error)
-      toast({
-        title: "Error sharing list",
-        description: "There was an error sharing your grocery list. Please try again.",
-        variant: "destructive",
-      })
+      // Only show error if it's not a user cancellation
+      if (error instanceof Error && error.name !== 'AbortError') {
+        console.error("Error sharing:", error)
+        toast({
+          title: "Error sharing grocery list",
+          description: "There was an error sharing your grocery list. Please try again.",
+          variant: "destructive",
+        })
+      }
     } finally {
       setIsSharing(false)
     }
@@ -242,24 +239,15 @@ export function GroceryList({ recipes, pantryItems = [] }: GroceryListProps) {
           <CardTitle className="text-2xl">Grocery List</CardTitle>
           <CardDescription>Everything you need for your meal plan</CardDescription>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" disabled={isSharing}>
-              <Share2 className="h-4 w-4" />
-              <span className="sr-only">Share grocery list</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[200px]">
-            <DropdownMenuItem onClick={() => handleShare("sms")} className="text-sm">
-              <FileDown className="mr-2 h-4 w-4" />
-              <span>Export To...</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleShare("copy")} className="text-sm">
-              <Copy className="mr-2 h-4 w-4" />
-              <span>Copy to Clipboard</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button 
+          variant="outline" 
+          disabled={isSharing} 
+          className="gap-2"
+          onClick={() => handleShare("sms")}
+        >
+          <Share2 className="h-4 w-4" />
+          Share
+        </Button>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">

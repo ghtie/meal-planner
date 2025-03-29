@@ -2,7 +2,7 @@
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
-import { Clock, UtensilsCrossed } from "lucide-react"
+import { Clock, UtensilsCrossed, Users } from "lucide-react"
 
 interface RecipeModalProps {
   recipe: {
@@ -10,6 +10,7 @@ interface RecipeModalProps {
     ingredients: { item: string; amount: string }[]
     prepTime: string
     cookTime: string
+    servings: number
     steps: string[]
   }
   isOpen: boolean
@@ -23,12 +24,18 @@ export function RecipeModal({ recipe, isOpen, onClose }: RecipeModalProps) {
         <DialogHeader>
           <DialogTitle>{recipe.name}</DialogTitle>
           <DialogDescription asChild>
-            <span className="flex items-center gap-2">
-              <UtensilsCrossed className="w-4 h-4 text-muted-foreground" />
-              <span>Prep: {recipe.prepTime} mins</span>
-              <Clock className="w-4 h-4 text-muted-foreground" />
-              <span>Cook: {recipe.cookTime} mins</span>
-            </span>
+            <div className="flex flex-col gap-2">
+              <span className="flex items-center gap-2">
+                <UtensilsCrossed className="w-4 h-4 text-muted-foreground" />
+                <span>Prep: {recipe.prepTime} mins</span>
+                <Clock className="w-4 h-4 text-muted-foreground" />
+                <span>Cook: {recipe.cookTime} mins</span>
+              </span>
+              <span className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-muted-foreground" />
+                <span>Serves: {recipe.servings}</span>
+              </span>
+            </div>
           </DialogDescription>
         </DialogHeader>
         <Separator className="my-4" />

@@ -207,14 +207,6 @@ export function MealPlan({ preferences, onRestart }: MealPlanProps) {
             window.location.href = `sms:?body=${encodeURIComponent(formatMealPlan("text"))}`
           }
           break
-
-        case "copy":
-          await navigator.clipboard.writeText(formatMealPlan("text"))
-          toast({
-            title: "Copied to clipboard",
-            description: "Your weekly meal plan has been copied to the clipboard.",
-          })
-          break
       }
     } catch (error) {
       console.error("Error sharing:", error)
@@ -281,10 +273,6 @@ export function MealPlan({ preferences, onRestart }: MealPlanProps) {
                     <FileDown className="mr-2 h-4 w-4" />
                     <span>Export To...</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleShare("copy")} className="text-sm">
-                    <Copy className="mr-2 h-4 w-4" />
-                    <span>Copy to Clipboard</span>
-                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
               <Button 
@@ -303,8 +291,7 @@ export function MealPlan({ preferences, onRestart }: MealPlanProps) {
             <div className="space-y-6">
               <div className="text-center text-muted-foreground mb-6">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                <p>Generating Your Personalized Meal Plan...</p>
-                <p className="text-sm mt-2">
+                <p>
                   {generatingRecipes.length > 0 
                     ? `Generating ${generatingRecipes[0].mealType.charAt(0).toUpperCase() + generatingRecipes[0].mealType.slice(1)} for ${generatingRecipes[0].day.charAt(0).toUpperCase() + generatingRecipes[0].day.slice(1)}...`
                     : "Almost Done!"}
@@ -356,6 +343,10 @@ export function MealPlan({ preferences, onRestart }: MealPlanProps) {
                                 <Clock className="w-4 h-4 text-muted-foreground" />
                                 <div className="text-muted-foreground">Cook:</div>
                                 <div>{meal.cookTime} mins</div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="text-muted-foreground">Servings:</div>
+                                <div>{meal.servings} servings</div>
                               </div>
                             </div>
                           </CardContent>

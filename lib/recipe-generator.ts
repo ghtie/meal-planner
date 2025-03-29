@@ -86,7 +86,6 @@ function createBasePrompt(context: {
   const { cuisines, prepTime, cookTime, allergies, dietaryPreferences, pantryItems, familySize } = context
   
   // Calculate total servings based on family size
-  // Adults and teenagers count as 1 serving, children as 0.5
   const totalServings = familySize.adults + familySize.teenagers + Math.ceil(familySize.children * 0.5)
   
   return `Create a healthy, beginner-friendly recipe:
@@ -120,17 +119,61 @@ Ingredients:
 Steps:
 1. [Step]
 
-Generate a grocery list following these rules:
-1. Units: Use only grams, kilograms, ounces, pounds, milliliters, liters, cups, tablespoons, teaspoons. No units for whole items.
-2. Names: Remove prefixes (fresh, dried, etc.), use singular form, base names only.
-3. Categories: Produce, Meat/Poultry, Seafood, Dairy/Eggs, Pantry, Spices, Oils/Vinegars
-4. Skip pantry items listed above
-5. Use decimal numbers (no fractions)
+Generate a grocery list following these STRICT rules:
+1. Units: Use ONLY these units and follow these rules:
+   - For whole items (e.g., onions, tomatoes, lemons): Use count only (e.g., "2 onions")
+   - For weight items: Use "grams", "kg", "oz", "lbs" (e.g., "200 grams rice")
+   - For volume: Use "ml", "liters", "cups", "tbsp", "tsp"
+   - NEVER use ranges or "to taste"
+   - NEVER omit units for weight or volume measurements
+
+2. Common whole items (ALWAYS use count, NEVER use weight):
+   - Vegetables: onion, tomato, carrot, potato, cucumber, bell pepper, garlic clove
+   - Fruits: apple, orange, lemon, lime, banana
+   - Others: egg
+
+3. Amounts:
+   - ALWAYS include a specific amount
+   - Use decimal numbers (e.g., 0.5, not 1/2)
+   - NEVER use zero amounts
+   - NEVER leave amounts empty
+   - Round to 2 decimal places maximum
+   - For whole items: Use whole numbers only (e.g., "2 onions" not "2.5 onions")
+
+4. Names:
+   - Use base names only (e.g., "onion" not "yellow onion")
+   - Remove ALL descriptive words (fresh, dried, chopped, diced, etc.)
+   - Use singular form for the item name
+   - NEVER include preparation instructions in name
+
+5. Categories: Group into ONLY these categories:
+   - Produce
+   - Meat/Poultry/Seafood
+   - Dairy
+   - Pantry
+
+6. Duplicates:
+   - Combine identical ingredients
+   - Add amounts together
+   - Use same unit when combining
+   - Example: "2 onions" + "1 onion" = "3 onions"
+   - Remove ingredients that were included in the pantry items
 
 Format:
 Grocery List:
 [Category]:
-- [Amount] [Unit] [Item]`
+- [Number] [Unit] [Item]
+
+Example:
+Grocery List:
+Produce:
+- 3 onions
+- 2 tomatoes
+- 500 grams spinach
+Meat/Poultry/Seafood:
+- 1.5 lbs chicken breast
+Dairy:
+- 2 cups milk`
 }
 
 interface GenerateMealPlanProps {
@@ -335,6 +378,7 @@ function isValidRecipe(recipe: Recipe): boolean {
     recipe.name !== "Recipe Name" &&
     recipe.ingredients.length >= 3 &&
     recipe.steps.length >= 2 &&
+    recipe.servings > 0 &&
     !recipe.name.includes("[") && // Check for placeholder text
     !recipe.ingredients.some((ing) => ing.item.includes("[") || ing.amount.includes("["))
   )
@@ -355,6 +399,11 @@ function parseRecipeResponse(response: string): Recipe {
     const prepTimeMatch = cleanResponse.match(/Prep Time:\s*(\d+)/i)
     const cookTimeMatch = cleanResponse.match(/Cook Time:\s*(\d+)/i)
     const servingsMatch = cleanResponse.match(/Servings:\s*(\d+)/i)
+
+    if (!servingsMatch) {
+      console.error("No servings information found in recipe response")
+      throw new Error("Recipe is missing serving size information")
+    }
 
     // Extract ingredients section
     const ingredientsSection = cleanResponse
@@ -430,33 +479,83 @@ function parseRecipeResponse(response: string): Recipe {
     
     if (groceryListSection) {
       let currentCategory = ""
+      const validCategories = ["Produce", "Meat/Poultry/Seafood", "Dairy", "Pantry"]
+      
       groceryListSection.split('\n').forEach(line => {
         line = line.trim()
         if (!line) return
 
+        // Handle category lines
         if (line.endsWith(':')) {
           currentCategory = line.slice(0, -1).trim()
-          groceryList[currentCategory] = []
-        } else if (line.startsWith('-') && currentCategory) {
+          if (validCategories.includes(currentCategory)) {
+            groceryList[currentCategory] = []
+          }
+          return
+        }
+
+        // Parse grocery items
+        if (line.startsWith('-') && currentCategory && validCategories.includes(currentCategory)) {
           const cleanLine = line.replace(/^-\s*/, '').trim()
-          const match = cleanLine.match(/^([\d./]+\s*(?:cup|cups|tbsp|tsp|g|oz|pound|pounds|ml|piece|pieces|to taste|pinch|handful|large|medium|small)[s]?\s+)(.+)/)
+          
+          // Enhanced parsing regex to capture amount, unit, and item
+          const match = cleanLine.match(/^([\d.]+)\s*((?:grams|kg|oz|lbs|ml|liters|cups|tbsp|tsp|)\s*)?(.+)/)
           
           if (match) {
+            const [, amount, unit, item] = match
+            const numAmount = parseFloat(amount)
+            
+            // Skip invalid items
+            if (numAmount <= 0 || !item.trim()) {
+              return
+            }
+
+            // Normalize the item name
+            const normalizedItem = item
+              .toLowerCase()
+              .replace(/^(fresh|dried|ground|chopped|diced|minced|sliced|whole|organic|raw)\s+/, '')
+              .replace(/\s*\([^)]*\)/g, '')
+              .replace(/\s*\[[^\]]*\]/g, '')
+              .replace(/,.*$/, '')
+              .replace(/\s+/g, ' ')
+              .trim()
+
+            // Add to grocery list with normalized values
             groceryList[currentCategory].push({
-              amount: match[1].trim(),
-              unit: '',  // The unit is included in the amount for simplicity
-              item: match[2].trim()
-            })
-          } else {
-            // Fallback parsing
-            const words = cleanLine.split(' ')
-            groceryList[currentCategory].push({
-              amount: words[0] || "1",
-              unit: '',
-              item: words.slice(1).join(' ') || cleanLine
+              amount: numAmount.toFixed(2),
+              unit: unit ? unit.trim() : '',
+              item: normalizedItem
             })
           }
         }
+      })
+
+      // Remove empty categories
+      Object.keys(groceryList).forEach(category => {
+        if (groceryList[category].length === 0) {
+          delete groceryList[category]
+        }
+      })
+
+      // Combine duplicates within each category
+      Object.keys(groceryList).forEach(category => {
+        const combinedItems = new Map<string, GroceryItem>()
+        
+        groceryList[category].forEach(item => {
+          const key = item.item
+          if (combinedItems.has(key)) {
+            const existing = combinedItems.get(key)!
+            const newAmount = parseFloat(existing.amount) + parseFloat(item.amount)
+            combinedItems.set(key, {
+              ...existing,
+              amount: newAmount.toFixed(2)
+            })
+          } else {
+            combinedItems.set(key, item)
+          }
+        })
+        
+        groceryList[category] = Array.from(combinedItems.values())
       })
     }
 
@@ -472,10 +571,16 @@ function parseRecipeResponse(response: string): Recipe {
       name: nameMatch?.[1]?.trim() || "Recipe Name",
       prepTime: prepTimeMatch?.[1] || "15",
       cookTime: cookTimeMatch?.[1] || "15",
-      servings: Number(servingsMatch?.[1] || "4"),
+      servings: Number(servingsMatch[1]),
       ingredients,
       steps,
       groceryList
+    }
+
+    // Validate servings
+    if (recipe.servings <= 0) {
+      console.error("Invalid serving size:", recipe.servings)
+      throw new Error("Recipe has invalid serving size")
     }
 
     console.log("Final parsed recipe:", recipe)
@@ -483,6 +588,6 @@ function parseRecipeResponse(response: string): Recipe {
   } catch (error) {
     console.error("Error parsing recipe response:", error)
     console.error("Failed response:", response)
-    throw error // Preserve the original error message
+    throw error
   }
 }
