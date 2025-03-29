@@ -120,6 +120,12 @@ Steps:
 1. [Step]
 
 Generate a grocery list following these STRICT rules:
+
+IMPORTANT - Pantry Items:
+- NEVER include any items that were listed in "Use these pantry items" section
+- Remove ALL ingredients that match pantry items from the final grocery list
+- Double check the final list to ensure NO pantry items are included
+
 1. Units: Use ONLY these units and follow these rules:
    - For whole items (e.g., onions, tomatoes, lemons): Use count only (e.g., "2 onions")
    - For weight items: Use "grams", "kg", "oz", "lbs" (e.g., "200 grams rice")
@@ -157,7 +163,6 @@ Generate a grocery list following these STRICT rules:
    - Add amounts together
    - Use same unit when combining
    - Example: "2 onions" + "1 onion" = "3 onions"
-   - Remove ingredients that were included in the pantry items
 
 Format:
 Grocery List:

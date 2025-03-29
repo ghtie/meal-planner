@@ -250,20 +250,20 @@ export function MealPlan({ preferences, onRestart }: MealPlanProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-2 sm:px-0">
       <Card>
         <CardHeader className="p-4 md:p-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <CardTitle className="text-xl md:text-2xl">Your Weekly Meal Plan</CardTitle>
               <CardDescription className="text-sm md:text-base">
                 Here are your personalized meals for the week
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" disabled={isSharing} className="gap-2">
+                  <Button variant="outline" disabled={isSharing} className="gap-2 w-full sm:w-auto">
                     <Share2 className="h-4 w-4" />
                     Share
                   </Button>
@@ -278,6 +278,7 @@ export function MealPlan({ preferences, onRestart }: MealPlanProps) {
               <Button 
                 variant="outline" 
                 onClick={() => window.location.reload()}
+                className="w-full sm:w-auto"
               >
                 Generate New Plan
               </Button>
@@ -300,7 +301,7 @@ export function MealPlan({ preferences, onRestart }: MealPlanProps) {
               {Object.keys(preferences.mealSelection).map((_, i) => (
                 <div key={i}>
                   <Skeleton className="h-6 w-24 mb-4" />
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                     {Object.keys(preferences.mealSelection[Object.keys(preferences.mealSelection)[0]]).map((_, j) => (
                       <Skeleton key={j} className="h-[150px]" />
                     ))}
@@ -316,9 +317,9 @@ export function MealPlan({ preferences, onRestart }: MealPlanProps) {
               if (!hasMeals) return null
 
               return (
-                <div key={day}>
+                <div key={day} className="mb-6 last:mb-0">
                   <h3 className="font-semibold capitalize mb-4">{day}</h3>
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                     {Object.entries(meals).map(([mealType, meal]) => {
                       if (!meal) return null
 
@@ -328,11 +329,11 @@ export function MealPlan({ preferences, onRestart }: MealPlanProps) {
                           className="cursor-pointer transition-colors hover:bg-accent/50"
                           onClick={() => setSelectedRecipe(meal)}
                         >
-                          <CardHeader className="p-4 md:p-6">
+                          <CardHeader className="p-4">
                             <CardTitle className="text-base md:text-lg capitalize">{mealType}</CardTitle>
                             <CardDescription className="text-sm">{meal.name}</CardDescription>
                           </CardHeader>
-                          <CardContent className="p-4 md:p-6 pt-0">
+                          <CardContent className="p-4 pt-0">
                             <div className="text-xs md:text-sm space-y-2">
                               <div className="flex items-center gap-2">
                                 <UtensilsCrossed className="w-4 h-4 text-muted-foreground" />
