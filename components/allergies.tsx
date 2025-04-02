@@ -50,7 +50,7 @@ const allergyOptions = [
   {
     name: "Sesame",
     description: "Sesame seeds and oil",
-    icon: "🫘",
+    icon: "🌱",
   },
   {
     name: "Gluten",
